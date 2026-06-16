@@ -2,12 +2,16 @@ from airflow import DAG
 from airflow.datasets import Dataset
 from airflow.utils.task_group import TaskGroup
 from pendulum import datetime
+import os
 
 from cosmos.providers.dbt.core.operators import (
     DbtDepsOperator,
     DbtRunOperationOperator,
     DbtSeedOperator,
 )
+
+AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow")
+DBT_EXECUTABLE_PATH = os.environ.get("DBT_EXECUTABLE_PATH", "dbt")
 
 with DAG(
     dag_id="import-seeds",
@@ -26,9 +30,9 @@ with DAG(
 
     deps_install = DbtDepsOperator(
         task_id="jaffle_shop_install_deps",
-        project_dir=f"/usr/local/airflow/dbt/jaffle_shop",
+        project_dir=f"{AIRFLOW_HOME}/dbt/jaffle_shop",
         schema="public",
-        dbt_executable_path="/usr/local/airflow/dbt_venv/bin/dbt",
+        dbt_executable_path=DBT_EXECUTABLE_PATH,
         conn_id="postgres",
     )
 
@@ -39,19 +43,19 @@ with DAG(
                     task_id=f"drop_{seed}_if_exists",
                     macro_name="drop_table",
                     args={"table_name": seed},
-                    project_dir=f"/usr/local/airflow/dbt/{project['project']}",
+                    project_dir=f"{AIRFLOW_HOME}/dbt/{project['project']}",
                     schema="public",
-                    dbt_executable_path="/usr/local/airflow/dbt_venv/bin/dbt",
+                    dbt_executable_path=DBT_EXECUTABLE_PATH,
                     conn_id="postgres",
                 )
 
     create_seeds = DbtSeedOperator(
-        task_id=f"jaffle_shop_seed",
-        project_dir=f"/usr/local/airflow/dbt/jaffle_shop",
+        task_id="jaffle_shop_seed",
+        project_dir=f"{AIRFLOW_HOME}/dbt/jaffle_shop",
         schema="public",
-        dbt_executable_path="/usr/local/airflow/dbt_venv/bin/dbt",
+        dbt_executable_path=DBT_EXECUTABLE_PATH,
         conn_id="postgres",
-        outlets=[Dataset(f"SEED://JAFFLE_SHOP")],
-     )
+        outlets=[Dataset("SEED://JAFFLE_SHOP")],
+    )
 
     deps_install >> drop_seeds >> create_seeds
