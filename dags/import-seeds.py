@@ -4,14 +4,22 @@ from airflow.utils.task_group import TaskGroup
 from pendulum import datetime
 import os
 
-from cosmos.providers.dbt.core.operators import (
-    DbtDepsOperator,
-    DbtRunOperationOperator,
-    DbtSeedOperator,
-)
+from cosmos import ProfileConfig
+from cosmos.operators.local import DbtRunOperationLocalOperator, DbtSeedLocalOperator
+from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow")
 DBT_EXECUTABLE_PATH = os.environ.get("DBT_EXECUTABLE_PATH", "dbt")
+DBT_PROJECT_DIR = f"{AIRFLOW_HOME}/dbt/jaffle_shop"
+
+profile_config = ProfileConfig(
+    profile_name="jaffle_shop",
+    target_name="dev",
+    profile_mapping=PostgresUserPasswordProfileMapping(
+        conn_id="postgres",
+        profile_args={"schema": "public"},
+    ),
+)
 
 with DAG(
     dag_id="import-seeds",
@@ -28,34 +36,24 @@ with DAG(
         }
     ]
 
-    deps_install = DbtDepsOperator(
-        task_id="jaffle_shop_install_deps",
-        project_dir=f"{AIRFLOW_HOME}/dbt/jaffle_shop",
-        schema="public",
-        dbt_executable_path=DBT_EXECUTABLE_PATH,
-        conn_id="postgres",
-    )
-
     with TaskGroup(group_id="drop_seeds_if_exist") as drop_seeds:
         for project in project_seeds:
             for seed in project["seeds"]:
-                DbtRunOperationOperator(
+                DbtRunOperationLocalOperator(
                     task_id=f"drop_{seed}_if_exists",
                     macro_name="drop_table",
                     args={"table_name": seed},
                     project_dir=f"{AIRFLOW_HOME}/dbt/{project['project']}",
-                    schema="public",
+                    profile_config=profile_config,
                     dbt_executable_path=DBT_EXECUTABLE_PATH,
-                    conn_id="postgres",
                 )
 
-    create_seeds = DbtSeedOperator(
+    create_seeds = DbtSeedLocalOperator(
         task_id="jaffle_shop_seed",
-        project_dir=f"{AIRFLOW_HOME}/dbt/jaffle_shop",
-        schema="public",
+        project_dir=DBT_PROJECT_DIR,
+        profile_config=profile_config,
         dbt_executable_path=DBT_EXECUTABLE_PATH,
-        conn_id="postgres",
         outlets=[Dataset("SEED://JAFFLE_SHOP")],
     )
 
-    deps_install >> drop_seeds >> create_seeds
+    drop_seeds >> create_seeds
