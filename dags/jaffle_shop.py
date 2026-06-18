@@ -10,7 +10,7 @@ AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow")
 DBT_EXECUTABLE_PATH = os.environ.get("DBT_EXECUTABLE_PATH", "dbt")
 DBT_PROJECT_DIR = f"{AIRFLOW_HOME}/dbt/jaffle_shop"
 DBT_DATABASE = os.environ.get("DBT_DATABASE", "postgres")
-DBT_SCHEMA = os.environ.get("DBT_SCHEMA", "public")
+DBT_SCHEMA = os.environ.get("DBT_SCHEMA", "test")
 
 profile_config = ProfileConfig(
     profile_name="jaffle_shop",
