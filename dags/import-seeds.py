@@ -43,7 +43,7 @@ with DAG(
             for seed in project["seeds"]:
                 DbtRunOperationLocalOperator(
                     task_id=f"drop_{seed}_if_exists",
-                    macro_name="drop_table",
+                    macro_name="drop_table_in_schema_if_exists",
                     args={"table_name": seed},
                     project_dir=f"{AIRFLOW_HOME}/dbt/{project['project']}",
                     profile_config=profile_config,
